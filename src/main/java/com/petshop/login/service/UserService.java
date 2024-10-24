@@ -1,12 +1,12 @@
 package com.petshop.login.service;
 
-import com.petshop.login.model.LoginRequest;
-import com.petshop.login.model.LoginResponse;
-import com.petshop.login.model.RegisterRequest;
-import com.petshop.login.model.User;
+import com.petshop.login.model.*;
 import com.petshop.login.repository.UserRepository;
 import com.petshop.login.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,12 +25,12 @@ public class UserService {
     public LoginResponse login(LoginRequest loginRequest) {
         User user = userRepository.findByNome(loginRequest.getNome()); //busca pelo nome
         if(user != null && passwordEncoder.matches(loginRequest.getSenha(), user.getSenha())) { //valida se o usuário não é nulo e se o password esta correto com o banco de dados
-            String token = jwtUtil.generateToken(user.getNome()); //gera o token para o usuario
+            String token = jwtUtil.generateToken(user.getNome(), user.getNivelAcesso().name()); //gera o token para o usuario
             return new LoginResponse(user.getEmail(), user.getNome(), user.getCriadoEm(), token);
         }
         throw new RuntimeException("Dados invalidos");
     }
-/*
+
 
 
     @PreAuthorize("hasRole('MASTER' or hasRole('ADMIN')")
@@ -54,10 +54,9 @@ public class UserService {
             throw new RuntimeException("Você não tem permissão para cadastrar usuários.");
         }
     }
-*/
 
-//    private User createUser(RegisterRequest registerRequest)
-   public User register(RegisterRequest registerRequest) {
+
+    private User createUser(RegisterRequest registerRequest) {
         //cadastra o usuário
         User newUser = new User();
         newUser.setNome(registerRequest.getNome());
