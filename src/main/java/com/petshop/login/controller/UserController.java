@@ -2,7 +2,6 @@ package com.petshop.login.controller;
 
 import com.petshop.login.model.*;
 import com.petshop.login.service.UserService;
-import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,31 +15,12 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    //Faz o login
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
-        try {
-            LoginResponse response = userService.login(loginRequest);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(null);
-        }
-    }
-
-    @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody RegisterRequest registerRequest) {
-        try {
-            User newUser = userService.register(registerRequest);
-            return ResponseEntity.ok(newUser);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
     @PreAuthorize("hasRole('MASTER') or hasRole('ADMIN')")
     @GetMapping("/all")
-    public ResponseEntity<List<UserResponse>>getAllUsers() {
+    public ResponseEntity<List<UserResponse>>getAllUsers(@RequestParam(required = false, defaultValue = "NOME") SortField sortField,
+                                                         @RequestParam(required = false, defaultValue = "ASC") DirectionField direction) {
         try {
-            List<UserResponse> users = userService.getAllUsers();
+            List<UserResponse> users = userService.getAllUsersSorted(sortField, direction);
             return ResponseEntity.ok(users);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(null);
