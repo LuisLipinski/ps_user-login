@@ -10,6 +10,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class UserService {
 
@@ -64,5 +67,32 @@ public class UserService {
         newUser.setSenha(passwordEncoder.encode(registerRequest.getSenha()));
         newUser.setNivelAcesso(registerRequest.getNivelAcesso());
         return userRepository.save(newUser);
+    }
+
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(user -> new UserResponse(user.getId(), user.getNome(), user.getEmail(), user.getNivelAcesso(), user.getCriadoEm()))
+                .collect(Collectors.toList());
+    }
+
+    public UserResponse getUserById(Long id) {
+        User user = userRepository.findById(id).orElse(null);
+        return user != null ? new UserResponse(user.getId(), user.getNome(), user.getEmail(), user.getNivelAcesso(), user.getCriadoEm()) : null;
+    }
+
+    public UserResponse getUserByName(String nome) {
+        User user = userRepository.findByNome(nome);
+        return user != null ? new UserResponse(user.getId(), user.getNome(), user.getEmail(), user.getNivelAcesso(), user.getCriadoEm()) : null;
+    }
+
+    public UserResponse getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email);
+        return user != null ? new UserResponse(user.getId(), user.getNome(), user.getEmail(), user.getNivelAcesso(), user.getCriadoEm()) : null;
+    }
+
+    public List<UserResponse> getUserByRole(NivelAcesso nivelAcesso) {
+        return userRepository.findByNivelAcesso(nivelAcesso).stream()
+                .map(user -> new UserResponse(user.getId(), user.getNome(), user.getEmail(), user.getNivelAcesso(), user.getCriadoEm()))
+                .collect(Collectors.toList());
     }
 }

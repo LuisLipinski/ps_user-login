@@ -38,6 +38,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/usuario/login").permitAll()
                         .requestMatchers("/usuario/register").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/all").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/{id}").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/nome").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/email").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/role").hasAnyRole("ADMIN", "MASTER")
                         .requestMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
