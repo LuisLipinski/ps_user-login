@@ -14,7 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -22,7 +21,6 @@ public class SecurityConfig {
     @Autowired
     private JwtRequestFilter jwtRequestFilter;
 
-    //Configuração do authenticationManager
     @Bean
     public AuthenticationManager authManager(HttpSecurity http, PasswordEncoder passwordEncoder) throws Exception {
         AuthenticationManagerBuilder authenticationManagerBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
@@ -34,15 +32,17 @@ public class SecurityConfig {
         return authenticationManagerBuilder.build();
     }
 
-    //Configuração do SecurityFilterChain
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        //habilita o CSRF para que precisa informar o token nas rotas POST GET
-        //para desabilitar é so colocar csrf -> csrf.disable()
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/usuario/login").permitAll()
-                        .requestMatchers("/usuario/register").permitAll()
+                        .requestMatchers("/usuario/register").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/all").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/{id}").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/nome").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/email").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/role").hasAnyRole("ADMIN", "MASTER")
                         .requestMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

@@ -11,9 +11,10 @@ import java.util.Date;
 public class JwtUtil {
     private final String SECRET_KEY = "Teste_SecretKey_123456";
     private final long EXPIRATION_TIME = 1000 * 60 * 60;
-    public String generateToken(String nome) {
+    public String generateToken(String nome, String role) {
         return Jwts.builder()
                 .setSubject(nome)
+                .claim("role", role)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
@@ -30,6 +31,10 @@ public class JwtUtil {
 
     public String extractName(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
     }
 
     private Claims extractAllClaims(String token) {
