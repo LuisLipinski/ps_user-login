@@ -36,8 +36,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/usuario/login").permitAll()
+                        .requestMatchers("/login/").permitAll()
                         .requestMatchers("/usuario/register").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/edit/{id}").hasAnyRole("ADMIN", "MASTER")
+                        .requestMatchers("/usuario/edit/{id}").permitAll()
+                        .requestMatchers("/usuario/delete/{id}").hasAnyRole("ADMIN", "MASTER")
                         .requestMatchers("/usuario/all").hasAnyRole("ADMIN", "MASTER")
                         .requestMatchers("/usuario/{id}").hasAnyRole("ADMIN", "MASTER")
                         .requestMatchers("/usuario/nome").hasAnyRole("ADMIN", "MASTER")
