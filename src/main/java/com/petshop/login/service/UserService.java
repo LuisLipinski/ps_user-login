@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -157,5 +159,33 @@ public class UserService {
         } else {
             throw new RuntimeException("Usuário não encontrado.");
         }
+    }
+
+    public String generateResetToken(String email, String nome) {
+        List<User> users = userRepository.findByEmailAndNome(email, nome);
+        if (users.isEmpty()) {
+            throw new RuntimeException("Nenhum usuário encontrado com o email: " + email + " e nome: " + nome);
+        } else if (users.size() > 1) {
+            throw new RuntimeException("Mais de um usuário encontrado com o email: " + email + " e nome: " + nome);
+        }
+
+        User user = users.get(0);
+        String token = UUID.randomUUID().toString();
+        user.setResetToken(token);
+        userRepository.save(user);
+
+        return token;
+    }
+
+    public void resetPassword(String token, String newPassword) {
+        Optional<User> userOptional = userRepository.findByResetToken(token);
+        if (userOptional.isEmpty()) {
+            throw new RuntimeException("Token inválido.");
+        }
+
+        User user = userOptional.get();
+        user.setSenha(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        userRepository.save(user);
     }
 }

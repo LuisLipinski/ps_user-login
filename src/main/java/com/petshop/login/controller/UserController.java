@@ -1,7 +1,10 @@
 package com.petshop.login.controller;
 
 import com.petshop.login.model.*;
+import com.petshop.login.service.EmailService;
 import com.petshop.login.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,8 +15,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/usuario")
 public class UserController {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private EmailService emailService;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@RequestBody RegisterRequest registerRequest) {
@@ -41,6 +49,37 @@ public class UserController {
     public ResponseEntity<Void> changePassword(@RequestBody ChangePasswordRequest changePasswordRequest) {
         try {
             userService.changePassword(changePasswordRequest.getOldPassword(), changePasswordRequest.getNewPassword());
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestParam String email, @RequestParam String nome) {
+        logger.debug("Received forgot password request for email: {} and nome: {}", email, nome);
+
+        try {
+            // Generate reset token and save to user record
+            String resetToken = userService.generateResetToken(email, nome);
+            logger.debug("Generated reset token: {}", resetToken);
+
+            // Send email with reset link
+            String resetLink = "http://localhost:8080/reset-password?token=" + resetToken;
+            emailService.sendSimpleMessage(email, "Password Reset Request", resetLink);
+            logger.debug("Sent reset link to email: {}", email);
+
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            logger.error("Error processing forgot password request for email: {} and nome: {}", email, nome, e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
+        try {
+            userService.resetPassword(token, newPassword);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
