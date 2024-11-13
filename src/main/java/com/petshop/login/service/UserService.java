@@ -1,5 +1,6 @@
 package com.petshop.login.service;
 
+import com.petshop.login.exception.ValidationException;
 import com.petshop.login.model.*;
 import com.petshop.login.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,8 @@ public class UserService {
 
     @PreAuthorize("hasRole('MASTER' or hasRole('ADMIN')")
     public UserResponse register(RegisterRequest registerRequest) {
+        //valida as regras de registro
+        UserValidation.validateRegisterRequest(registerRequest);
         //obtem o usuario autenticado
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUserRole = authentication.getAuthorities().toString();
@@ -39,11 +42,11 @@ public class UserService {
             //admin não pode criar master e admin
             if (registerRequest.getNivelAcesso() == NivelAcesso.MASTER ||
                     registerRequest.getNivelAcesso() == NivelAcesso.ADMIN) {
-                throw new RuntimeException("Você não tem permissão de criar um usuário com perfil Master e Admin.");
+                throw new ValidationException("Você não tem permissão de criar um usuário com perfil Master e Admin.");
             }
             return createUser(registerRequest);
         } else {
-            throw new RuntimeException("Você não tem permissão para cadastrar usuários.");
+            throw new ValidationException("Você não tem permissão para cadastrar usuários.");
         }
     }
 
@@ -93,29 +96,35 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public UserResponse updateUser(Long id, RegisterRequest registerRequest) {
+    public UserResponse updateUser(Long id, UpdateUserRequest updateUserRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUserRole = authentication.getAuthorities().toString();
 
-        User existingUser = userRepository.findById(id).orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+        User existingUser = userRepository.findById(id).orElseThrow(() -> new ValidationException("Usuário não encontrado"));
 
         if(currentUserRole.contains("ROLE_MASTER")) {
-            return updateUserInRepository(existingUser, registerRequest);
+            return updateUserInRepository(existingUser, updateUserRequest);
         } else if(currentUserRole.contains("ROLE_ADMIN")) {
             if ("MASTER".equals(existingUser.getNivelAcesso().name()) ||
                 "ADMIN".equals(existingUser.getNivelAcesso().name())) {
-                throw new RuntimeException("Voce não tem permissão para editar usuários.");
+                throw new ValidationException("Voce não tem permissão para editar usuários.");
             }
-            return updateUserInRepository(existingUser, registerRequest);
+            return updateUserInRepository(existingUser, updateUserRequest);
         } else {
-            throw new RuntimeException("Você não tem permissão para editar usuário");
+            throw new ValidationException("Você não tem permissão para editar usuário");
         }
     }
 
-    private UserResponse updateUserInRepository(User user, RegisterRequest registerRequest) {
-        user.setNome(registerRequest.getNome());
-        user.setEmail(registerRequest.getEmail());
-        user.setNivelAcesso(registerRequest.getNivelAcesso());
+    private UserResponse updateUserInRepository(User user, UpdateUserRequest updateUserRequest) {
+
+        try{
+            NivelAcesso nivelAcesso = NivelAcesso.valueOf(updateUserRequest.getNivelAcesso().toUpperCase());
+            user.setNivelAcesso(nivelAcesso);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Nível de acesso inválido. Níveis permitidos: MASTER, BANHO, ESTOQUE, CRECHE, VETERINARIO, ADMIN, LOJA.");
+        }
+        user.setNome(updateUserRequest.getNome());
+        user.setEmail(updateUserRequest.getEmail());
 
         user = userRepository.save(user);
         return new UserResponse(user.getId(), user.getNome(), user.getEmail(), user.getNivelAcesso(), user.getCriadoEm());
@@ -126,7 +135,7 @@ public class UserService {
         String currentUserRole = authentication.getAuthorities().toString();
 
         if (id == 2) {
-            throw new RuntimeException("Esse usuário nunca pode ser excluido");
+            throw new ValidationException("Esse usuário nunca pode ser excluido");
         }
 
         User userToDeleter = userRepository.findById(id).orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
@@ -136,11 +145,11 @@ public class UserService {
         } else if (currentUserRole.contains("ROLE_ADMIN")) {
             if("MASTER".equals(userToDeleter.getNivelAcesso().name()) ||
                 "ADMIN".equals(userToDeleter.getNivelAcesso().name())) {
-                throw new RuntimeException("Você não tem permissão para excluir esse usuário");
+                throw new ValidationException("Você não tem permissão para excluir esse usuário");
             }
             userRepository.delete(userToDeleter);
         }else {
-            throw new RuntimeException("Você não tem permissão para excluir usuário");
+            throw new ValidationException("Você não tem permissão para excluir usuário");
         }
     }
 
@@ -151,22 +160,22 @@ public class UserService {
         User user = userRepository.findByNome(username);
         if(user != null) {
             if(!passwordEncoder.matches(oldPassword, user.getSenha())) {
-                throw new RuntimeException("Senha antiga incorreta.");
+                throw new ValidationException("Senha antiga incorreta.");
             }
 
             user.setSenha(passwordEncoder.encode(newPassword));
             userRepository.save(user);
         } else {
-            throw new RuntimeException("Usuário não encontrado.");
+            throw new ValidationException("Usuário não encontrado.");
         }
     }
 
     public String generateResetToken(String email, String nome) {
         List<User> users = userRepository.findByEmailAndNome(email, nome);
         if (users.isEmpty()) {
-            throw new RuntimeException("Nenhum usuário encontrado com o email: " + email + " e nome: " + nome);
+            throw new ValidationException("Nenhum usuário encontrado com o email: " + email + " e nome: " + nome);
         } else if (users.size() > 1) {
-            throw new RuntimeException("Mais de um usuário encontrado com o email: " + email + " e nome: " + nome);
+            throw new ValidationException("Mais de um usuário encontrado com o email: " + email + " e nome: " + nome);
         }
 
         User user = users.get(0);
@@ -180,7 +189,7 @@ public class UserService {
     public void resetPassword(String token, String newPassword) {
         Optional<User> userOptional = userRepository.findByResetToken(token);
         if (userOptional.isEmpty()) {
-            throw new RuntimeException("Token inválido.");
+            throw new ValidationException("Token inválido.");
         }
 
         User user = userOptional.get();

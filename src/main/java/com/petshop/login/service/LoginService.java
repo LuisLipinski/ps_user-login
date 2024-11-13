@@ -1,5 +1,6 @@
 package com.petshop.login.service;
 
+import com.petshop.login.exception.ValidationException;
 import com.petshop.login.model.LoginRequest;
 import com.petshop.login.model.LoginResponse;
 import com.petshop.login.model.User;
@@ -27,6 +28,6 @@ public class LoginService {
             String token = jwtUtil.generateToken(user.getNome(), user.getNivelAcesso().name()); //gera o token para o usuario
             return new LoginResponse(user.getEmail(), user.getNome(), user.getCriadoEm(), token);
         }
-        throw new RuntimeException("Dados invalidos");
+        throw new ValidationException("Dados invalidos");
     }
 }
