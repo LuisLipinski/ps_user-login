@@ -1,14 +1,12 @@
 package com.petshop.login.model;
 
-import org.springframework.data.domain.Sort;
-
 public enum SortField {
     NOME("nome"),
     ID("id"),
     EMAIL("email"),
     NIVEL_ACESSO("nivelAcesso");
 
-    private String field;
+    private final String field;
 
     SortField(String field){
         this.field = field;

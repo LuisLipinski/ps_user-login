@@ -1,5 +1,6 @@
 package com.petshop.login.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
@@ -14,16 +15,15 @@ public class SwaggerConfig {
     public OpenAPI api() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Petshop usuário API")
+                        .title("Petshop Usuário API")
                         .version("1.0")
-                        .description("Api para cadastro, login e listagem de usuários"))
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
-                .components(new io.swagger.v3.oas.models.Components()
+                        .description("API para cadastro, login e listagem de usuários"))
+                .components(new Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
-                                .bearerFormat("JWT")));
-
+                                .bearerFormat("JWT")))
+                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
     }
 
     @Bean

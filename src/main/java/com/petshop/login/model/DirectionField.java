@@ -4,7 +4,7 @@ public enum DirectionField {
     ASC("asc"),
     DESC("desc");
 
-    private String direction;
+    private final String direction;
 
     DirectionField(String direction){
         this.direction = direction;

@@ -1,39 +1,39 @@
 package com.petshop.login.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuarios")
 public class User {
+
+    public User() {
+
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String nome;
 
-    @Column(unique = true)
+    @Column(nullable = false)
     private String email;
 
+    @JsonIgnore
+    @Column(nullable = false)
     private String senha;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private NivelAcesso nivelAcesso;
 
+    @Column(nullable = false)
     private LocalDateTime criadoEm;
 
-    public String getResetToken() {
-        return resetToken;
-    }
-
-    public void setResetToken(String resetToken) {
-        this.resetToken = resetToken;
-    }
-
     private String resetToken;
-
 
     public Long getId() {
         return id;
@@ -81,5 +81,13 @@ public class User {
 
     public void setCriadoEm(LocalDateTime criadoEm) {
         this.criadoEm = criadoEm;
+    }
+
+    public String getResetToken() {
+        return resetToken;
+    }
+
+    public void setResetToken(String resetToken) {
+        this.resetToken = resetToken;
     }
 }
