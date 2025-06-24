@@ -1,33 +1,50 @@
 package com.petshop.login.service;
 
-import com.petshop.login.exception.ValidationException;
+import com.petshop.login.exception.InvalidCredentialsException;
 import com.petshop.login.model.LoginRequest;
 import com.petshop.login.model.LoginResponse;
 import com.petshop.login.model.User;
 import com.petshop.login.repository.UserRepository;
 import com.petshop.login.util.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
 public class LoginService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private static final Logger logger = LoggerFactory.getLogger(LoginService.class);
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    public LoginService(AuthenticationManager authenticationManager, UserRepository userRepository, JwtUtil jwtUtil) {
+        this.authenticationManager = authenticationManager;
+        this.userRepository = userRepository;
+        this.jwtUtil = jwtUtil;
+    }
 
     public LoginResponse login(LoginRequest loginRequest) {
-        User user = userRepository.findByNome(loginRequest.getNome()); //busca pelo nome
-        if(user != null && passwordEncoder.matches(loginRequest.getSenha(), user.getSenha())) { //valida se o usuário não é nulo e se o password esta correto com o banco de dados
-            String token = jwtUtil.generateToken(user.getNome(), user.getNivelAcesso().name()); //gera o token para o usuario
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getNome(), loginRequest.getSenha())
+            );
+
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            User user = userRepository.findByNome(userDetails.getUsername()).orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+            String token = jwtUtil.generateToken(userDetails);
+
             return new LoginResponse(user.getEmail(), user.getNome(), user.getCriadoEm(), token);
+
+        } catch (AuthenticationException e) {
+            logger.error("Erro na autenticação para o usuário {}: {}", loginRequest.getNome(), e.getMessage());
+            throw new InvalidCredentialsException("Usuario ou senha invalido");
         }
-        throw new ValidationException("Dados invalidos");
     }
 }

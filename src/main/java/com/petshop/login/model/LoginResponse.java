@@ -3,10 +3,10 @@ package com.petshop.login.model;
 import java.time.LocalDateTime;
 
 public class LoginResponse {
-    private String email;
-    private String nome;
-    private LocalDateTime criadoEm;
-    private String token;
+    private final String email;
+    private final String nome;
+    private final LocalDateTime criadoEm;
+    private final String token;
 
     public LoginResponse(String email, String nome, LocalDateTime criadoEm, String token) {
         this.email = email;
