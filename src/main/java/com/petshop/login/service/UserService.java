@@ -54,9 +54,6 @@ public class UserService implements UserDetailsService {
         if (userRepository.findByNome(registerRequest.getNome()).isPresent()) {
             throw new ValidationException("Nome de usuário já existe.");
         }
-        if (userRepository.findByEmail(registerRequest.getEmail()).stream().findFirst().isPresent()) {
-            throw new ValidationException("Email já cadastrado.");
-        }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
@@ -78,9 +75,35 @@ public class UserService implements UserDetailsService {
         return new UserResponse(newUser.getId(), newUser.getNome(), newUser.getEmail(), newUser.getNivelAcesso(), newUser.getCriadoEm());
     }
 
-    public List<UserResponse> getAllUsersSorted(SortField sortField, DirectionField directionField) {
+    public List<UserResponse> getAllUsersSorted(String nome, String email, NivelAcesso nivelAcesso, SortField sortField, DirectionField directionField) {
+        if (nome != null && nome.trim().isEmpty()) {
+            nome = null;
+        }
+        if (email != null && email.trim().isEmpty()) {
+            email = null;
+        }
+
         Sort sort = Sort.by(Sort.Direction.fromString(directionField.getDirection()), sortField.getField());
-        return userRepository.findAll(sort).stream()
+        List<User> usuarios;
+
+        if(nome != null && email != null && nivelAcesso != null) {
+            usuarios = userRepository.findByNomeAndEmailAndNivelAcesso(nome, email, nivelAcesso, sort);
+        } else if (nome != null && email != null) {
+            usuarios = userRepository.findByNomeAndEmail(email, nome, sort);
+        } else if (nome != null && nivelAcesso != null) {
+            usuarios = userRepository.findByNomeAndNivelAcesso(nome, nivelAcesso, sort);
+        } else if (email != null && nivelAcesso != null) {
+            usuarios = userRepository.findByEmailAndNivelAcesso(email, nivelAcesso, sort);
+        } else if (nome != null) {
+            usuarios = userRepository.findByNome(nome, sort);
+        } else if (email != null) {
+            usuarios = userRepository.findByEmail(email, sort);
+        } else if (nivelAcesso != null) {
+            usuarios = userRepository.findByNivelAcesso(nivelAcesso, sort);
+        } else {
+            usuarios = userRepository.findAll(sort);
+        }
+        return usuarios.stream()
                 .map(this::convertToUserResponse)
                 .collect(Collectors.toList());
     }
@@ -92,24 +115,6 @@ public class UserService implements UserDetailsService {
 
     public Optional<UserResponse> getUserById(Long id) {
         return userRepository.findById(id).map(this::convertToUserResponse);
-    }
-
-    public Optional<UserResponse> getUserByName(String nome) {
-        return userRepository.findByNome(nome).map(this::convertToUserResponse);
-    }
-
-    public List<UserResponse> getUserByEmail(String email, SortField sortField, DirectionField direction) {
-        Sort sort = Sort.by(Sort.Direction.fromString(direction.getDirection()), sortField.getField());
-        return userRepository.findByEmail(email, sort).stream()
-                .map(this::convertToUserResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<UserResponse> getUserByRole(NivelAcesso nivelAcesso, SortField sortField, DirectionField direction) {
-        Sort sort = Sort.by(Sort.Direction.fromString(direction.getDirection()), sortField.getField());
-        return userRepository.findByNivelAcesso(nivelAcesso, sort).stream()
-                .map(this::convertToUserResponse)
-                .collect(Collectors.toList());
     }
 
     @Transactional
