@@ -91,9 +91,12 @@ public class UserController {
 
     @GetMapping("/all")
     @PreAuthorize("hasRole('MASTER') or hasRole('ADMIN')")
-    public ResponseEntity<List<UserResponse>> getAllUsers(@RequestParam(required = false, defaultValue = "NOME") SortField sortField,
-                                                          @RequestParam(required = false, defaultValue = "ASC") DirectionField direction) {
-        List<UserResponse> users = userService.getAllUsersSorted(sortField, direction);
+    public ResponseEntity<List<UserResponse>> getAllUsers(  @RequestParam (required = false) String nome,
+                                                            @RequestParam (required = false) String email,
+                                                            @RequestParam (required = false) NivelAcesso nivelAcesso,
+                                                            @RequestParam(required = false, defaultValue = "NOME") SortField sortField,
+                                                            @RequestParam(required = false, defaultValue = "ASC") DirectionField direction) {
+        List<UserResponse> users = userService.getAllUsersSorted(nome, email, nivelAcesso, sortField, direction);
         return ResponseEntity.ok(users);
     }
 
@@ -112,30 +115,4 @@ public class UserController {
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Usuário não encontrado.")));
     }
 
-    @GetMapping("/name")
-    @PreAuthorize("hasRole('MASTER') or hasRole('ADMIN')")
-    public ResponseEntity<?> getByName(@RequestParam String nome) {
-        return userService.getUserByName(nome)
-                .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Usuário não encontrado.")));
-    }
-
-    @GetMapping("/email")
-    @PreAuthorize("hasRole('MASTER') or hasRole('ADMIN')")
-    public ResponseEntity<List<UserResponse>> getUserByEmail(@RequestParam String email,
-                                                             @RequestParam(required = false, defaultValue = "NOME") SortField sortField,
-                                                             @RequestParam(required = false, defaultValue = "ASC") DirectionField direction) {
-        List<UserResponse> users = userService.getUserByEmail(email, sortField, direction);
-                return ResponseEntity.ok(users);
-
-    }
-
-    @GetMapping("/role")
-    @PreAuthorize("hasRole('MASTER') or hasRole('ADMIN')")
-    public ResponseEntity<List<UserResponse>> getUserByRole(@RequestParam NivelAcesso nivelAcesso,
-                                                            @RequestParam(required = false, defaultValue = "NOME") SortField sortField,
-                                                            @RequestParam(required = false, defaultValue = "ASC") DirectionField direction) {
-        List<UserResponse> users = userService.getUserByRole(nivelAcesso, sortField, direction);
-                return ResponseEntity.ok(users);
-    }
 }
