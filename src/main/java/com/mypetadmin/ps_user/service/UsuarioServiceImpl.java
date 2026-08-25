@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -39,11 +40,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         var existente = usuarioRepository.findByOnboardingId(request.onboardingId());
         if (existente.isPresent()) {
-            Usuario usuario = existente.get();
-            if (!usuario.getEmpresaId().equals(request.empresaId()) || !usuario.getEmail().equalsIgnoreCase(emailNormalizado)) {
-                throw new OnboardingConflictException();
-            }
-            return usuarioMapper.toResponse(usuario);
+            return validarReplay(existente.get(), request, emailNormalizado);
         }
 
         validarEmpresa(request.empresaId());
@@ -67,12 +64,26 @@ public class UsuarioServiceImpl implements UsuarioService {
                     salvo.getId(), salvo.getEmpresaId(), salvo.getOnboardingId());
             return usuarioMapper.toResponse(salvo);
         } catch (DataIntegrityViolationException ex) {
+            var concorrente = usuarioRepository.findByOnboardingId(request.onboardingId());
+            if (concorrente.isPresent()) {
+                return validarReplay(concorrente.get(), request, emailNormalizado);
+            }
             log.warn("user.master.conflict empresaId={} onboardingId={}", request.empresaId(), request.onboardingId());
             throw new EmailExistenteException();
         }
     }
 
-    private void validarEmpresa(java.util.UUID empresaId) {
+    private UsuarioResponseDTO validarReplay(Usuario usuario,
+                                              UsuarioMasterCreateRequestDTO request,
+                                              String emailNormalizado) {
+        if (!usuario.getEmpresaId().equals(request.empresaId())
+                || !usuario.getEmail().equalsIgnoreCase(emailNormalizado)) {
+            throw new OnboardingConflictException();
+        }
+        return usuarioMapper.toResponse(usuario);
+    }
+
+    private void validarEmpresa(UUID empresaId) {
         try {
             EmpresaStatusResponseDTO empresa = empresaClient.buscarStatusEmpresa(empresaId);
             if (empresa == null || empresa.empresaId() == null || !empresaId.equals(empresa.empresaId())) {

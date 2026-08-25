@@ -1,5 +1,10 @@
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /workspace
+COPY . .
+RUN chmod +x ./mvnw && ./mvnw -B -DskipTests package
+
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY target/ps_user-*.jar app.jar
+COPY --from=build /workspace/target/ps_user-*.jar app.jar
 EXPOSE 8083
 ENTRYPOINT ["java","-jar","/app/app.jar"]

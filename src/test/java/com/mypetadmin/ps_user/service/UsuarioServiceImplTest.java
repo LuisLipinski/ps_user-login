@@ -7,14 +7,18 @@ import com.mypetadmin.ps_user.entity.Usuario;
 import com.mypetadmin.ps_user.enums.RoleUsuario;
 import com.mypetadmin.ps_user.enums.StatusUsuario;
 import com.mypetadmin.ps_user.exception.EmailExistenteException;
+import com.mypetadmin.ps_user.exception.EmpresaIndisponivelException;
+import com.mypetadmin.ps_user.exception.EmpresaNaoEncontradaException;
 import com.mypetadmin.ps_user.exception.OnboardingConflictException;
 import com.mypetadmin.ps_user.mapper.UsuarioMapper;
 import com.mypetadmin.ps_user.repository.UsuarioRepository;
+import feign.FeignException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -23,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,11 +35,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceImplTest {
 
-    @Mock
-    private UsuarioRepository repository;
-    @Mock
-    private EmpresaClient empresaClient;
-
+    @Mock UsuarioRepository repository;
+    @Mock EmpresaClient empresaClient;
     private UsuarioServiceImpl service;
 
     @BeforeEach
@@ -43,10 +45,10 @@ class UsuarioServiceImplTest {
     }
 
     @Test
-    void deveCriarMasterDeFormaIdempotente() {
+    void deveCriarMasterNormalizandoEmail() {
         UUID empresaId = UUID.randomUUID();
         UUID onboardingId = UUID.randomUUID();
-        var request = new UsuarioMasterCreateRequestDTO(empresaId, onboardingId, "Luis", "LUIS@EXAMPLE.COM");
+        var request = new UsuarioMasterCreateRequestDTO(empresaId, onboardingId, "  Luis  ", " LUIS@EXAMPLE.COM ");
 
         when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty());
         when(empresaClient.buscarStatusEmpresa(empresaId)).thenReturn(new EmpresaStatusResponseDTO(empresaId, "AGUARDANDO_CONTRATO"));
@@ -60,9 +62,9 @@ class UsuarioServiceImplTest {
         var response = service.criarMaster(request);
 
         assertThat(response.email()).isEqualTo("luis@example.com");
+        assertThat(response.nome()).isEqualTo("Luis");
         assertThat(response.status()).isEqualTo(StatusUsuario.ATIVO);
         assertThat(response.roles()).containsExactly(RoleUsuario.MASTER);
-        verify(repository).saveAndFlush(any(Usuario.class));
     }
 
     @Test
@@ -72,8 +74,7 @@ class UsuarioServiceImplTest {
         Usuario existente = usuarioExistente(empresaId, onboardingId, "master@example.com");
         when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.of(existente));
 
-        var response = service.criarMaster(new UsuarioMasterCreateRequestDTO(
-                empresaId, onboardingId, "Master", "MASTER@example.com"));
+        var response = service.criarMaster(new UsuarioMasterCreateRequestDTO(empresaId, onboardingId, "Master", "MASTER@example.com"));
 
         assertThat(response.id()).isEqualTo(existente.getId());
         verify(empresaClient, never()).buscarStatusEmpresa(any());
@@ -81,13 +82,25 @@ class UsuarioServiceImplTest {
     }
 
     @Test
-    void deveRejeitarOnboardingReutilizadoComOutroUsuario() {
+    void deveRejeitarReplayComEmpresaDiferente() {
         UUID onboardingId = UUID.randomUUID();
         Usuario existente = usuarioExistente(UUID.randomUUID(), onboardingId, "master@example.com");
         when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.of(existente));
 
         assertThatThrownBy(() -> service.criarMaster(new UsuarioMasterCreateRequestDTO(
-                UUID.randomUUID(), onboardingId, "Outro", "outro@example.com")))
+                UUID.randomUUID(), onboardingId, "Outro", "master@example.com")))
+                .isInstanceOf(OnboardingConflictException.class);
+    }
+
+    @Test
+    void deveRejeitarReplayComEmailDiferente() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        Usuario existente = usuarioExistente(empresaId, onboardingId, "master@example.com");
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.of(existente));
+
+        assertThatThrownBy(() -> service.criarMaster(new UsuarioMasterCreateRequestDTO(
+                empresaId, onboardingId, "Master", "outro@example.com")))
                 .isInstanceOf(OnboardingConflictException.class);
     }
 
@@ -102,6 +115,84 @@ class UsuarioServiceImplTest {
         assertThatThrownBy(() -> service.criarMaster(new UsuarioMasterCreateRequestDTO(
                 empresaId, onboardingId, "Master", "master@example.com")))
                 .isInstanceOf(EmailExistenteException.class);
+    }
+
+    @Test
+    void deveRejeitarEmpresaNaoEncontradaPorRespostaNula() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty());
+        when(empresaClient.buscarStatusEmpresa(empresaId)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.criarMaster(request(empresaId, onboardingId)))
+                .isInstanceOf(EmpresaNaoEncontradaException.class);
+    }
+
+    @Test
+    void deveRejeitarEmpresaComIdDivergente() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty());
+        when(empresaClient.buscarStatusEmpresa(empresaId)).thenReturn(new EmpresaStatusResponseDTO(UUID.randomUUID(), "ATIVO"));
+
+        assertThatThrownBy(() -> service.criarMaster(request(empresaId, onboardingId)))
+                .isInstanceOf(EmpresaNaoEncontradaException.class);
+    }
+
+    @Test
+    void deveTraduzir404DaEmpresa() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty());
+        when(empresaClient.buscarStatusEmpresa(empresaId)).thenThrow(mock(FeignException.NotFound.class));
+
+        assertThatThrownBy(() -> service.criarMaster(request(empresaId, onboardingId)))
+                .isInstanceOf(EmpresaNaoEncontradaException.class);
+    }
+
+    @Test
+    void deveFalharFechadoQuandoEmpresaIndisponivel() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        FeignException falha = mock(FeignException.class);
+        when(falha.status()).thenReturn(503);
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty());
+        when(empresaClient.buscarStatusEmpresa(empresaId)).thenThrow(falha);
+
+        assertThatThrownBy(() -> service.criarMaster(request(empresaId, onboardingId)))
+                .isInstanceOf(EmpresaIndisponivelException.class);
+    }
+
+    @Test
+    void deveResolverCorridaDeOnboardingComoReplayIdempotente() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        Usuario concorrente = usuarioExistente(empresaId, onboardingId, "master@example.com");
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty(), Optional.of(concorrente));
+        when(empresaClient.buscarStatusEmpresa(empresaId)).thenReturn(new EmpresaStatusResponseDTO(empresaId, "AGUARDANDO_CONTRATO"));
+        when(repository.existsByEmailIgnoreCase("master@example.com")).thenReturn(false);
+        when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("race"));
+
+        var response = service.criarMaster(request(empresaId, onboardingId));
+
+        assertThat(response.id()).isEqualTo(concorrente.getId());
+    }
+
+    @Test
+    void deveTraduzirConflitoDeBancoSemOnboardingConcorrenteComoEmailDuplicado() {
+        UUID empresaId = UUID.randomUUID();
+        UUID onboardingId = UUID.randomUUID();
+        when(repository.findByOnboardingId(onboardingId)).thenReturn(Optional.empty(), Optional.empty());
+        when(empresaClient.buscarStatusEmpresa(empresaId)).thenReturn(new EmpresaStatusResponseDTO(empresaId, "ATIVO"));
+        when(repository.existsByEmailIgnoreCase("master@example.com")).thenReturn(false);
+        when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("unique"));
+
+        assertThatThrownBy(() -> service.criarMaster(request(empresaId, onboardingId)))
+                .isInstanceOf(EmailExistenteException.class);
+    }
+
+    private UsuarioMasterCreateRequestDTO request(UUID empresaId, UUID onboardingId) {
+        return new UsuarioMasterCreateRequestDTO(empresaId, onboardingId, "Master", "master@example.com");
     }
 
     private Usuario usuarioExistente(UUID empresaId, UUID onboardingId, String email) {

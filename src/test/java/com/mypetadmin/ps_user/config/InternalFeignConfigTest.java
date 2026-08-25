@@ -23,7 +23,6 @@ class InternalFeignConfigTest {
         MDC.put(CorrelationIdFilter.MDC_KEY, "corr-123");
         RequestInterceptor interceptor = config.internalKeyInterceptor("internal-secret");
         RequestTemplate template = new RequestTemplate();
-
         interceptor.apply(template);
 
         assertThat(template.headers().get("X-Internal-Key")).containsExactly("internal-secret");
@@ -31,8 +30,18 @@ class InternalFeignConfigTest {
     }
 
     @Test
+    void deveEnviarSomenteChaveQuandoNaoHaCorrelationId() {
+        RequestInterceptor interceptor = config.internalKeyInterceptor("internal-secret");
+        RequestTemplate template = new RequestTemplate();
+        interceptor.apply(template);
+
+        assertThat(template.headers().get("X-Internal-Key")).containsExactly("internal-secret");
+        assertThat(template.headers()).doesNotContainKey(CorrelationIdFilter.HEADER_NAME);
+    }
+
+    @Test
     void deveFalharSemChaveInterna() {
-        assertThatThrownBy(() -> config.internalKeyInterceptor(" "))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.internalKeyInterceptor(" ")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.internalKeyInterceptor(null)).isInstanceOf(IllegalStateException.class);
     }
 }
