@@ -31,7 +31,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = InternalUsuarioController.class)
 @Import({SecurityConfig.class, InternalRequestFilter.class, CorrelationIdFilter.class, GlobalExceptionHandler.class})
-@TestPropertySource(properties = "security.internal-key=test-key")
+@TestPropertySource(properties = {
+        "security.internal-key=test-key",
+        "clients.ps-empresa.url=http://localhost:8081"
+})
 class InternalUsuarioControllerSecurityTest {
 
     @Autowired MockMvc mockMvc;
