@@ -113,6 +113,7 @@ jobs:
 
       - name: Start PS_Empresa
         env:
+          SPRING_PROFILES_ACTIVE: prod
           DB_URL: jdbc:postgresql://localhost:5432/mypetdb
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
@@ -122,6 +123,7 @@ jobs:
 
       - name: Start PS_User
         env:
+          SPRING_PROFILES_ACTIVE: prod
           DB_URL: jdbc:postgresql://localhost:5432/psuserdb
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
