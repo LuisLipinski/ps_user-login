@@ -13,6 +13,7 @@ public record UsuarioResponseDTO(
         String nome,
         String email,
         StatusUsuario status,
+        boolean primaryMaster,
         Set<RoleUsuario> roles,
         OffsetDateTime dataCriacao,
         OffsetDateTime dataAtualizacao
