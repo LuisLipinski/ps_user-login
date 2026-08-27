@@ -25,6 +25,26 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "USER_ONBOARDING_CONFLICT", ex, request);
     }
 
+    @ExceptionHandler(PrimaryMasterExistenteException.class)
+    ResponseEntity<ErrorResponse> handlePrimaryMasterExists(PrimaryMasterExistenteException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "USER_PRIMARY_MASTER_EXISTS", ex, request);
+    }
+
+    @ExceptionHandler(PrimeiroMasterProtegidoException.class)
+    ResponseEntity<ErrorResponse> handlePrimaryMasterProtected(PrimeiroMasterProtegidoException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "USER_PRIMARY_MASTER_PROTECTED", ex, request);
+    }
+
+    @ExceptionHandler(UsuarioNaoEncontradoException.class)
+    ResponseEntity<ErrorResponse> handleUserNotFound(UsuarioNaoEncontradoException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex, request);
+    }
+
+    @ExceptionHandler(UsuarioOperacaoNaoPermitidaException.class)
+    ResponseEntity<ErrorResponse> handleUserForbidden(UsuarioOperacaoNaoPermitidaException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, "USER_OPERATION_FORBIDDEN", ex, request);
+    }
+
     @ExceptionHandler(EmpresaNaoEncontradaException.class)
     ResponseEntity<ErrorResponse> handleEmpresaNotFound(EmpresaNaoEncontradaException ex, HttpServletRequest request) {
         return build(HttpStatus.UNPROCESSABLE_ENTITY, "USER_EMPRESA_NOT_FOUND", ex, request);
