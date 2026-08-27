@@ -10,5 +10,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     Optional<Usuario> findByOnboardingId(UUID onboardingId);
 
+    Optional<Usuario> findByIdAndEmpresaId(UUID id, UUID empresaId);
+
     boolean existsByEmailIgnoreCase(String email);
+
+    boolean existsByEmpresaIdAndPrimaryMasterTrue(UUID empresaId);
 }
