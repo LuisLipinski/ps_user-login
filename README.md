@@ -28,8 +28,8 @@ Essas responsabilidades pertencem ao PS_Login.
 
 ## Arquitetura
 
-- Java 21
-- Spring Boot 3.5.x
+- Java 25 LTS
+- Spring Boot 4.1.1
 - Spring Data JPA
 - Spring Security
 - OpenFeign
@@ -71,6 +71,10 @@ Resposta de identidade:
 - `roles`
 
 O endpoint não autentica, não valida senha e não emite JWT. Usuários inativos são retornados com `status=INATIVO`; cabe ao PS_Login impedir a autenticação.
+
+## Provisionamento de senha
+
+O PS_User não recebe nem armazena senha. Após a criação da identidade, o futuro PS_Login será responsável por enviar um convite de ativação por e-mail para que o próprio usuário defina sua senha. MASTER/ADMIN não define nem visualiza senha de outro usuário.
 
 ## Banco
 
