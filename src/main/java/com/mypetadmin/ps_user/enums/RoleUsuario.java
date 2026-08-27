@@ -3,5 +3,9 @@ package com.mypetadmin.ps_user.enums;
 public enum RoleUsuario {
     MASTER,
     ADMIN,
-    USER
+    LOJA,
+    VETERINARIO,
+    BANHO,
+    HOTEL,
+    CRECHE
 }
