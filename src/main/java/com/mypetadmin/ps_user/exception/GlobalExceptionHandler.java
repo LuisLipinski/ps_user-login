@@ -48,6 +48,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "USER_OPERATION_FORBIDDEN", ex, request);
     }
 
+    @ExceptionHandler(UsuarioRequisicaoInvalidaException.class)
+    ResponseEntity<ErrorResponse> handleUserBadRequest(UsuarioRequisicaoInvalidaException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "USER_INVALID_REQUEST", ex, request);
+    }
+
     @ExceptionHandler(EmpresaNaoEncontradaException.class)
     ResponseEntity<ErrorResponse> handleEmpresaNotFound(EmpresaNaoEncontradaException ex, HttpServletRequest request) {
         return build(HttpStatus.UNPROCESSABLE_ENTITY, "USER_EMPRESA_NOT_FOUND", ex, request);
