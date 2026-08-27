@@ -2,6 +2,7 @@ package com.mypetadmin.ps_user.service;
 
 import com.mypetadmin.ps_user.dto.PageResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioCreateRequestDTO;
+import com.mypetadmin.ps_user.dto.UsuarioIdentityResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioMasterCreateRequestDTO;
 import com.mypetadmin.ps_user.dto.UsuarioResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioRoleUpdateRequestDTO;
@@ -16,6 +17,8 @@ public interface UsuarioService {
     UsuarioResponseDTO criarMaster(UsuarioMasterCreateRequestDTO request);
 
     UsuarioResponseDTO criarUsuario(UUID actorUserId, UsuarioCreateRequestDTO request);
+
+    UsuarioIdentityResponseDTO buscarIdentidadePorEmail(String email);
 
     UsuarioResponseDTO buscarUsuario(UUID actorUserId, UUID usuarioId);
 

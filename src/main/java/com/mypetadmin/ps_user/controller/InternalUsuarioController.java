@@ -2,6 +2,7 @@ package com.mypetadmin.ps_user.controller;
 
 import com.mypetadmin.ps_user.dto.PageResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioCreateRequestDTO;
+import com.mypetadmin.ps_user.dto.UsuarioIdentityResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioMasterCreateRequestDTO;
 import com.mypetadmin.ps_user.dto.UsuarioResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioRoleUpdateRequestDTO;
@@ -46,6 +47,11 @@ public class InternalUsuarioController {
             @RequestHeader(ACTOR_USER_ID_HEADER) UUID actorUserId,
             @Valid @RequestBody UsuarioCreateRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.criarUsuario(actorUserId, request));
+    }
+
+    @GetMapping("/identity")
+    public ResponseEntity<UsuarioIdentityResponseDTO> buscarIdentidadePorEmail(@RequestParam String email) {
+        return ResponseEntity.ok(usuarioService.buscarIdentidadePorEmail(email));
     }
 
     @GetMapping("/{usuarioId}")
