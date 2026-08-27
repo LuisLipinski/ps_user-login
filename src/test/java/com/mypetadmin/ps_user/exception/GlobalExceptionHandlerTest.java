@@ -3,6 +3,7 @@ package com.mypetadmin.ps_user.exception;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.bind.ServletRequestBindingException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,12 +15,26 @@ class GlobalExceptionHandlerTest {
     void deveMapearConflitosDeDominio() {
         assertResponse(handler.handleEmail(new EmailExistenteException(), request()), HttpStatus.CONFLICT, "USER_EMAIL_EXISTS");
         assertResponse(handler.handleOnboarding(new OnboardingConflictException(), request()), HttpStatus.CONFLICT, "USER_ONBOARDING_CONFLICT");
+        assertResponse(handler.handlePrimaryMasterExists(new PrimaryMasterExistenteException(), request()), HttpStatus.CONFLICT, "USER_PRIMARY_MASTER_EXISTS");
+        assertResponse(handler.handlePrimaryMasterProtected(new PrimeiroMasterProtegidoException(), request()), HttpStatus.CONFLICT, "USER_PRIMARY_MASTER_PROTECTED");
+    }
+
+    @Test
+    void deveMapearErrosDeGestao() {
+        assertResponse(handler.handleUserNotFound(new UsuarioNaoEncontradoException(), request()), HttpStatus.NOT_FOUND, "USER_NOT_FOUND");
+        assertResponse(handler.handleUserForbidden(new UsuarioOperacaoNaoPermitidaException(), request()), HttpStatus.FORBIDDEN, "USER_OPERATION_FORBIDDEN");
     }
 
     @Test
     void deveMapearFalhasDeEmpresa() {
         assertResponse(handler.handleEmpresaNotFound(new EmpresaNaoEncontradaException(), request()), HttpStatus.UNPROCESSABLE_ENTITY, "USER_EMPRESA_NOT_FOUND");
         assertResponse(handler.handleEmpresaUnavailable(new EmpresaIndisponivelException(), request()), HttpStatus.SERVICE_UNAVAILABLE, "USER_EMPRESA_UNAVAILABLE");
+    }
+
+    @Test
+    void deveMapearRequisicaoMalformada() {
+        assertResponse(handler.handleBadRequest(new ServletRequestBindingException("header ausente"), request()),
+                HttpStatus.BAD_REQUEST, "USER_BAD_REQUEST");
     }
 
     @Test
@@ -30,8 +45,7 @@ class GlobalExceptionHandlerTest {
     }
 
     private MockHttpServletRequest request() {
-        var request = new MockHttpServletRequest("POST", "/internal/usuarios/master");
-        return request;
+        return new MockHttpServletRequest("POST", "/internal/usuarios/master");
     }
 
     private void assertResponse(org.springframework.http.ResponseEntity<ErrorResponse> response,

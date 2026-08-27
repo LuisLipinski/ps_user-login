@@ -4,9 +4,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -23,6 +26,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OnboardingConflictException.class)
     ResponseEntity<ErrorResponse> handleOnboarding(OnboardingConflictException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, "USER_ONBOARDING_CONFLICT", ex, request);
+    }
+
+    @ExceptionHandler(PrimaryMasterExistenteException.class)
+    ResponseEntity<ErrorResponse> handlePrimaryMasterExists(PrimaryMasterExistenteException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "USER_PRIMARY_MASTER_EXISTS", ex, request);
+    }
+
+    @ExceptionHandler(PrimeiroMasterProtegidoException.class)
+    ResponseEntity<ErrorResponse> handlePrimaryMasterProtected(PrimeiroMasterProtegidoException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "USER_PRIMARY_MASTER_PROTECTED", ex, request);
+    }
+
+    @ExceptionHandler(UsuarioNaoEncontradoException.class)
+    ResponseEntity<ErrorResponse> handleUserNotFound(UsuarioNaoEncontradoException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex, request);
+    }
+
+    @ExceptionHandler(UsuarioOperacaoNaoPermitidaException.class)
+    ResponseEntity<ErrorResponse> handleUserForbidden(UsuarioOperacaoNaoPermitidaException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, "USER_OPERATION_FORBIDDEN", ex, request);
     }
 
     @ExceptionHandler(EmpresaNaoEncontradaException.class)
@@ -42,6 +65,13 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 ex.getBindingResult().getFieldErrors().stream().map(error -> error.getField()).distinct().toList());
         return response(HttpStatus.BAD_REQUEST, "USER_VALIDATION_ERROR", "Dados inválidos", request);
+    }
+
+    @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class})
+    ResponseEntity<ErrorResponse> handleBadRequest(Exception ex, HttpServletRequest request) {
+        log.warn("request.bad_request method={} path={} type={}",
+                request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName());
+        return response(HttpStatus.BAD_REQUEST, "USER_BAD_REQUEST", "Requisição inválida", request);
     }
 
     @ExceptionHandler(Exception.class)
