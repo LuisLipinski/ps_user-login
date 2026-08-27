@@ -54,6 +54,9 @@ public class Usuario {
     @Column(nullable = false, length = 20)
     private StatusUsuario status;
 
+    @Column(name = "primary_master", nullable = false)
+    private boolean primaryMaster;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "usuario_roles", joinColumns = @JoinColumn(name = "usuario_id"))
     @Enumerated(EnumType.STRING)
