@@ -16,6 +16,7 @@ public class UsuarioMapper {
                 usuario.getNome(),
                 usuario.getEmail(),
                 usuario.getStatus(),
+                usuario.isPrimaryMaster(),
                 Set.copyOf(usuario.getRoles()),
                 usuario.getDataCriacao(),
                 usuario.getDataAtualizacao()
