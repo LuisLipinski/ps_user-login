@@ -1,0 +1,263 @@
+name: PS_User CI
+
+on:
+  push:
+    branches: [ master, 'rebuild/**' ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: chmod +x ./mvnw
+      - name: Unit tests and JaCoCo quality gate
+        run: ./mvnw -B verify
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco
+          if-no-files-found: ignore
+
+  migration-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ps_user_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ps_user_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Validate Flyway SQL on PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d ps_user_test -v ON_ERROR_STOP=1 -f src/main/resources/db/migration/V1__create_usuario_schema.sql
+          psql -h localhost -U postgres -d ps_user_test -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build container
+        run: docker build -t ps-user:ci .
+
+  empresa-user-integration:
+    needs: [unit-tests, migration-postgres]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: mypetdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mypetdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout PS_User
+        uses: actions/checkout@v5
+
+      - name: Checkout PS_Empresa master
+        uses: actions/checkout@v5
+        with:
+          repository: LuisLipinski/PS_Empresa
+          ref: master
+          path: ps-empresa
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Prepare PostgreSQL databases
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d mypetdb -c "CREATE DATABASE psuserdb;"
+
+      - name: Build both services
+        run: |
+          chmod +x ./mvnw ps-empresa/mvnw
+          ./mvnw -B clean package -DskipTests
+          (cd ps-empresa && ./mvnw -B clean package -DskipTests)
+
+      - name: Start PS_Empresa
+        env:
+          SPRING_PROFILES_ACTIVE: prod
+          DB_URL: jdbc:postgresql://localhost:5432/mypetdb
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          INTERNAL_API_KEY: mypetadmin-ci-internal-key
+          JWT_SECRET_KEY: mypetadmin-ci-jwt-secret-key-32chars
+        run: nohup java -jar ps-empresa/target/*.jar > ps-empresa.log 2>&1 &
+
+      - name: Start PS_User
+        env:
+          SPRING_PROFILES_ACTIVE: prod
+          DB_URL: jdbc:postgresql://localhost:5432/psuserdb
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          INTERNAL_API_KEY: mypetadmin-ci-internal-key
+          PS_EMPRESA_URL: http://localhost:8081
+        run: nohup java -jar target/*.jar > ps-user.log 2>&1 &
+
+      - name: Wait for both services
+        run: |
+          for port in 8081 8083; do
+            ready=false
+            for i in {1..40}; do
+              if curl -fsS "http://localhost:${port}/actuator/health" | grep -q UP; then
+                ready=true
+                break
+              fi
+              sleep 3
+            done
+            if [ "$ready" != "true" ]; then
+              echo "Serviço na porta ${port} não ficou pronto"
+              cat ps-empresa.log || true
+              cat ps-user.log || true
+              exit 1
+            fi
+          done
+
+      - name: Run Empresa to User onboarding contract
+        env:
+          INTERNAL_API_KEY: mypetadmin-ci-internal-key
+        run: |
+          set -euo pipefail
+
+          empresa_payload='{
+            "documentNumber":"17395568000151",
+            "razaoSocial":"My Pet Admin CI LTDA",
+            "nomeFantasia":"My Pet Admin CI",
+            "telefone":"41999999999",
+            "email":"empresa-ci@mypetadmin.test",
+            "nomeTitular":"Carlos Eduardo",
+            "rua":"Rua A",
+            "numero":"100",
+            "complemento":"casa",
+            "bairro":"Centro",
+            "cidade":"Curitiba",
+            "estado":"PR",
+            "cep":"01010100"
+          }'
+
+          empresa_response=$(curl -fsS -X POST http://localhost:8081/internal/empresas \
+            -H "X-Internal-Key: ${INTERNAL_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -H 'X-Correlation-Id: ci-empresa-user' \
+            -d "$empresa_payload")
+
+          empresa_id=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$empresa_response")
+          onboarding_id=$(python3 -c 'import uuid; print(uuid.uuid4())')
+
+          user_payload=$(python3 - "$empresa_id" "$onboarding_id" <<'PY'
+          import json, sys
+          print(json.dumps({
+              "empresaId": sys.argv[1],
+              "onboardingId": sys.argv[2],
+              "nome": "Master CI",
+              "email": "master-ci@mypetadmin.test"
+          }))
+          PY
+          )
+
+          first_status=$(curl -sS -o first-user.json -w '%{http_code}' -X POST http://localhost:8083/internal/usuarios/master \
+            -H "X-Internal-Key: ${INTERNAL_API_KEY}" \
+            -H 'X-Correlation-Id: ci-empresa-user' \
+            -H 'Content-Type: application/json' \
+            -d "$user_payload")
+          test "$first_status" = "201"
+
+          python3 - "$empresa_id" <<'PY'
+          import json, sys
+          data = json.load(open("first-user.json"))
+          assert data["empresaId"] == sys.argv[1]
+          assert data["status"] == "ATIVO"
+          assert data["roles"] == ["MASTER"]
+          assert data["email"] == "master-ci@mypetadmin.test"
+          PY
+
+          first_user_id=$(python3 -c 'import json; print(json.load(open("first-user.json"))["id"])')
+
+          replay_status=$(curl -sS -o replay-user.json -w '%{http_code}' -X POST http://localhost:8083/internal/usuarios/master \
+            -H "X-Internal-Key: ${INTERNAL_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$user_payload")
+          test "$replay_status" = "201"
+          replay_user_id=$(python3 -c 'import json; print(json.load(open("replay-user.json"))["id"])')
+          test "$first_user_id" = "$replay_user_id"
+
+          invalid_empresa_id=$(python3 -c 'import uuid; print(uuid.uuid4())')
+          invalid_payload=$(python3 - "$invalid_empresa_id" <<'PY'
+          import json, sys, uuid
+          print(json.dumps({
+              "empresaId": sys.argv[1],
+              "onboardingId": str(uuid.uuid4()),
+              "nome": "Master Invalido",
+              "email": "master-invalido@mypetadmin.test"
+          }))
+          PY
+          )
+
+          invalid_status=$(curl -sS -o invalid-user.json -w '%{http_code}' -X POST http://localhost:8083/internal/usuarios/master \
+            -H "X-Internal-Key: ${INTERNAL_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$invalid_payload")
+          test "$invalid_status" = "422"
+          python3 - <<'PY'
+          import json
+          data = json.load(open("invalid-user.json"))
+          assert data["code"] == "USER_EMPRESA_NOT_FOUND"
+          PY
+
+          echo "Empresa -> PS_User onboarding contract passed"
+
+      - name: Upload cross-service evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: empresa-user-integration-evidence
+          path: |
+            first-user.json
+            replay-user.json
+            invalid-user.json
+            ps-empresa.log
+            ps-user.log
+          if-no-files-found: warn
+
+      - name: Print service logs on failure
+        if: failure()
+        run: |
+          cat ps-empresa.log || true
+          cat ps-user.log || true
