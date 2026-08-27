@@ -1,9 +1,9 @@
 package com.mypetadmin.ps_user.exception;
 
-import jakarta.servlet.ServletRequestBindingException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.bind.ServletRequestBindingException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
