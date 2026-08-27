@@ -4,6 +4,7 @@ import com.mypetadmin.ps_user.client.EmpresaClient;
 import com.mypetadmin.ps_user.dto.EmpresaStatusResponseDTO;
 import com.mypetadmin.ps_user.dto.PageResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioCreateRequestDTO;
+import com.mypetadmin.ps_user.dto.UsuarioIdentityResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioMasterCreateRequestDTO;
 import com.mypetadmin.ps_user.dto.UsuarioResponseDTO;
 import com.mypetadmin.ps_user.dto.UsuarioRoleUpdateRequestDTO;
@@ -125,6 +126,25 @@ public class UsuarioServiceImpl implements UsuarioService {
         } catch (DataIntegrityViolationException ex) {
             throw new EmailExistenteException();
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UsuarioIdentityResponseDTO buscarIdentidadePorEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new UsuarioRequisicaoInvalidaException("E-mail é obrigatório");
+        }
+
+        String emailNormalizado = normalizeEmail(email);
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(emailNormalizado)
+                .orElseThrow(UsuarioNaoEncontradoException::new);
+
+        return new UsuarioIdentityResponseDTO(
+                usuario.getId(),
+                usuario.getEmpresaId(),
+                usuario.getEmail(),
+                usuario.getStatus(),
+                Set.copyOf(usuario.getRoles()));
     }
 
     @Override
